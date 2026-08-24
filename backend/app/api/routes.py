@@ -28,7 +28,7 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Invalid PDF file")
     try:
         doc = ingest_document(file_bytes, file.filename)
-        return {"document_id": doc["id"], "status": doc["status"], "filename": doc["filename"]}
+        return doc
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -102,6 +102,18 @@ def ask_query(req: QueryRequest):
             "total_ms": retrieval_ms + generation_ms,
         },
     }
+
+
+from app.retrieval.vector_store import VectorStore
+
+@router.delete("/documents/{doc_id}", status_code=204)
+def delete_document(doc_id: str):
+    doc = repository.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    vs = VectorStore()
+    vs.delete_collection(doc_id)
+    repository.delete_document(doc_id)
 
 
 @router.get("/queries/{query_id}")

@@ -39,7 +39,13 @@ def get_all_documents() -> list[dict]:
         return [dict(r) for r in rows]
 
 
-def insert_query(query: dict) -> str:
+def delete_document(doc_id: str) -> bool:
+    with get_db() as conn:
+        result = conn.execute("DELETE FROM documents WHERE id=?", (doc_id,))
+        return result.rowcount > 0
+
+
+
     query_id = query.get("id") or str(uuid.uuid4())
     with get_db() as conn:
         conn.execute(
