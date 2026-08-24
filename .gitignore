@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.db
+*.db-shm
+*.db-wal
+chroma_db/
+serviceAccountKey.json
+
+# Env
+.env
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
