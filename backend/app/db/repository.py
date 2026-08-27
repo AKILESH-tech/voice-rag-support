@@ -45,7 +45,13 @@ def delete_document(doc_id: str) -> bool:
         return result.rowcount > 0
 
 
+def get_document_by_filename(filename: str) -> dict | None:
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM documents WHERE filename=? ORDER BY created_at DESC LIMIT 1", (filename,)).fetchone()
+        return dict(row) if row else None
 
+
+def insert_query(query: dict) -> str:
     query_id = query.get("id") or str(uuid.uuid4())
     with get_db() as conn:
         conn.execute(
@@ -65,6 +71,7 @@ def delete_document(doc_id: str) -> bool:
             ),
         )
     return query_id
+
 
 
 def get_query(query_id: str) -> dict | None:

@@ -5,11 +5,13 @@ from app.ai.provider import FallbackAIProvider
 from app.config import settings
 from app.db.database import init_db
 from app.api.routes import router
+from app.ingestion.sample_kb import bootstrap_sample_kb
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    bootstrap_sample_kb()
     yield
 
 

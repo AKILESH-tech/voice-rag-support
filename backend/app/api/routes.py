@@ -1,12 +1,15 @@
 import time
 import uuid
-from fastapi import APIRouter, File, UploadFile, HTTPException
+import hashlib
+from fastapi import APIRouter, File, UploadFile, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app.ingestion.pipeline import ingest_document
+from app.ingestion.sample_kb import list_sample_kb, bootstrap_sample_kb
 from app.retrieval.retriever import retrieve
 from app.generation.generator import AnswerGenerator
 from app.db import repository
+from app.auth.access import verify_access, check_rate_limit, get_usage
 
 router = APIRouter(prefix="/api")
 
@@ -17,8 +20,35 @@ class QueryRequest(BaseModel):
     mode: str = "text"
 
 
+@router.post("/auth/verify")
+def verify_passcode(body: dict, request: Request):
+    """Verify passcode and return daily token."""
+    from app.auth.access import get_passcode
+    passcode = body.get("passcode", "")
+    if passcode != get_passcode():
+        raise HTTPException(status_code=401, detail="Invalid access code. Please check and try again.")
+    today = time.strftime("%Y-%m-%d")
+    token = hashlib.sha256(f"{get_passcode()}{today}".encode()).hexdigest()
+    return {"token": token, "valid_until": today}
+
+
+@router.get("/auth/usage")
+def get_usage_endpoint(request: Request, _auth: bool = Depends(verify_access)):
+    return get_usage(request, "ai_call")
+
+
+@router.get("/sample-kb")
+def get_sample_kb(_auth: bool = Depends(verify_access)):
+    return list_sample_kb()
+
+
+@router.post("/sample-kb/bootstrap")
+def load_sample_kb(_auth: bool = Depends(verify_access)):
+    return bootstrap_sample_kb()
+
+
 @router.post("/documents")
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(file: UploadFile = File(...), _auth: bool = Depends(verify_access)):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
     file_bytes = await file.read()
@@ -36,12 +66,12 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @router.get("/documents")
-def list_documents():
+def list_documents(_auth: bool = Depends(verify_access)):
     return repository.get_all_documents()
 
 
 @router.get("/documents/{doc_id}")
-def get_document(doc_id: str):
+def get_document(doc_id: str, _auth: bool = Depends(verify_access)):
     doc = repository.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -49,7 +79,8 @@ def get_document(doc_id: str):
 
 
 @router.post("/query")
-def ask_query(req: QueryRequest):
+def ask_query(req: QueryRequest, request: Request, _auth: bool = Depends(verify_access)):
+    check_rate_limit(request, "ai_call")
     doc = repository.get_document(req.document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -107,7 +138,7 @@ def ask_query(req: QueryRequest):
 from app.retrieval.vector_store import VectorStore
 
 @router.delete("/documents/{doc_id}", status_code=204)
-def delete_document(doc_id: str):
+def delete_document(doc_id: str, _auth: bool = Depends(verify_access)):
     doc = repository.get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -117,7 +148,7 @@ def delete_document(doc_id: str):
 
 
 @router.get("/queries/{query_id}")
-def get_query(query_id: str):
+def get_query(query_id: str, _auth: bool = Depends(verify_access)):
     query = repository.get_query(query_id)
     if not query:
         raise HTTPException(status_code=404, detail="Query not found")
@@ -126,7 +157,7 @@ def get_query(query_id: str):
 
 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
+async def transcribe_audio(file: UploadFile = File(...), _auth: bool = Depends(verify_access)):
     from app.speech.stt import transcribe
     audio_bytes = await file.read()
     result = transcribe(audio_bytes)

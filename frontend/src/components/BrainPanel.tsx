@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import type { FileRejection } from 'react-dropzone'
-import { uploadDocument, getDocuments, deleteDocument } from '../api/client'
+import { uploadDocument, getDocuments, deleteDocument, bootstrapSampleKb } from '../api/client'
 import type { Document } from '../types'
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024 // 20MB
@@ -15,6 +15,7 @@ interface Props {
 export function BrainPanel({ selectedDocId, onSelectDoc }: Props) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [uploading, setUploading] = useState(false)
+  const [loadingSampleKb, setLoadingSampleKb] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
@@ -89,6 +90,32 @@ export function BrainPanel({ selectedDocId, onSelectDoc }: Props) {
     }
   }
 
+  const handleLoadSampleKb = async () => {
+    setUploadError(null)
+    setDeleteError(null)
+    setLoadingSampleKb(true)
+    try {
+      const result = await bootstrapSampleKb()
+      const all = [...result.created, ...result.existing]
+      if (all.length > 0) {
+        setDocuments(prev => {
+          const map = new Map(prev.map(d => [d.id, d]))
+          for (const doc of all) map.set(doc.id, doc)
+          return Array.from(map.values()).sort((a, b) => b.created_at.localeCompare(a.created_at))
+        })
+        const indexed = all.find(d => d.status === 'indexed')
+        if (indexed) onSelectDoc(indexed.id)
+      }
+      await fetchDocs()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } }; message?: string }
+      const msg = e?.response?.data?.detail || e?.message || 'Could not load sample KB'
+      setUploadError(`❌ ${msg}`)
+    } finally {
+      setLoadingSampleKb(false)
+    }
+  }
+
   const statusColor = (status: string) => {
     if (status === 'indexed') return 'text-emerald-400'
     if (status === 'failed') return 'text-red-400'
@@ -110,20 +137,29 @@ export function BrainPanel({ selectedDocId, onSelectDoc }: Props) {
           <span className="text-sm font-semibold text-purple-300 tracking-wider uppercase">Brain</span>
           <span className="text-xs text-slate-500">— Knowledge Sources</span>
         </div>
-        <div
-          {...getRootProps()}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all
-            ${isDragActive ? 'bg-purple-600 text-white' : 'bg-purple-900/40 text-purple-300 hover:bg-purple-800/60 border border-purple-700/40'}
-            ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <input {...getInputProps()} />
-          {uploading ? (
-            <><span className="animate-spin">⏳</span> Uploading...</>
-          ) : isDragActive ? (
-            <>📂 Drop PDF here</>
-          ) : (
-            <>+ Add PDF</>
-          )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleLoadSampleKb}
+            disabled={loadingSampleKb}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-purple-700/40 bg-purple-900/20 text-purple-300 hover:bg-purple-800/40 disabled:opacity-50"
+          >
+            {loadingSampleKb ? 'Loading sample KB...' : 'Load sample KB'}
+          </button>
+          <div
+            {...getRootProps()}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all
+              ${isDragActive ? 'bg-purple-600 text-white' : 'bg-purple-900/40 text-purple-300 hover:bg-purple-800/60 border border-purple-700/40'}
+              ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <input {...getInputProps()} />
+            {uploading ? (
+              <><span className="animate-spin">⏳</span> Uploading...</>
+            ) : isDragActive ? (
+              <>📂 Drop PDF here</>
+            ) : (
+              <>+ Add PDF</>
+            )}
+          </div>
         </div>
       </div>
 

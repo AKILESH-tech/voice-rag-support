@@ -18,6 +18,8 @@ Frontend (React + Vite) → FastAPI Backend → ChromaDB (vector search) + SQLit
 - 🔍 Semantic search via Gemini embeddings + ChromaDB
 - 🤖 Grounded answers with citations and confidence scores
 - 🎤 Voice input via Web Speech API
+- 🔐 Passcode authentication with daily rotating access token
+- 🧪 Built-in sample knowledge base pack (3 pre-loaded support docs)
 - 📊 Telemetry: retrieval, generation, and STT latencies
 - 🔄 AI provider fallback: Gemini → Groq → OpenRouter → HuggingFace
 
@@ -52,6 +54,7 @@ npm run dev
 | `OPENROUTER_API_KEY` | OpenRouter API key (fallback LLM) |
 | `HUGGINGFACE_API_KEY` | HuggingFace API key (fallback LLM) |
 | `FRONTEND_ORIGIN` | Allowed CORS origin for frontend |
+| `ACCESS_PASSCODE` | Shared passcode for frontend access gate |
 
 ## API Endpoints
 
@@ -63,6 +66,15 @@ npm run dev
 | POST | `/api/query` | Ask a question |
 | GET | `/api/queries/{id}` | Get query + citations |
 | POST | `/api/transcribe` | Transcribe audio (faster-whisper) |
+| GET | `/api/sample-kb` | List bundled sample KB templates |
+| POST | `/api/sample-kb/bootstrap` | Create sample KB documents in DB/vector store |
+
+## Access + Voice Agent Behavior
+
+- Frontend is passcode-gated (`/api/auth/verify`) and sends daily token in `x-access-token`.
+- Protected APIs include document upload/list/delete, query, transcribe, and sample KB bootstrap.
+- Agent prompt is tuned for voice: concise answers, read-aloud friendly, and citation grounded.
+- Daily AI call cap: 3 questions per session/IP.
 
 ## Deployment
 
