@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     chunk_overlap: int = 50
     top_k: int = 5
     retrieval_threshold: float = 0.4
+    firebase_project_id: str = ""
+    google_application_credentials: str | None = None
+    firebase_allow_dev_auth: bool = True
 
     model_config = {"env_file": ".env"}
 

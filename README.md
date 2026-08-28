@@ -18,7 +18,7 @@ Frontend (React + Vite) → FastAPI Backend → ChromaDB (vector search) + SQLit
 - 🔍 Semantic search via Gemini embeddings + ChromaDB
 - 🤖 Grounded answers with citations and confidence scores
 - 🎤 Voice input via Web Speech API
-- 🔐 Passcode authentication with daily rotating access token
+- 🔐 Google authentication via Firebase
 - 🧪 Built-in sample knowledge base pack (3 pre-loaded support docs)
 - 📊 Telemetry: retrieval, generation, and STT latencies
 - 🔄 AI provider fallback: Gemini → Groq → OpenRouter → HuggingFace
@@ -41,7 +41,13 @@ uvicorn app.main:app --reload
 ```bash
 cd frontend
 npm install
-echo "VITE_API_URL=http://localhost:8000" > .env.local
+cat > .env.local <<EOF
+VITE_API_URL=http://localhost:8000
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_APP_ID=...
+EOF
 npm run dev
 ```
 
@@ -54,7 +60,9 @@ npm run dev
 | `OPENROUTER_API_KEY` | OpenRouter API key (fallback LLM) |
 | `HUGGINGFACE_API_KEY` | HuggingFace API key (fallback LLM) |
 | `FRONTEND_ORIGIN` | Allowed CORS origin for frontend |
-| `ACCESS_PASSCODE` | Shared passcode for frontend access gate |
+| `FIREBASE_PROJECT_ID` | Firebase project id used for token verification |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to Firebase service account JSON on backend |
+| `FIREBASE_ALLOW_DEV_AUTH` | Enables `dev_` bearer tokens for local development |
 
 ## API Endpoints
 
@@ -71,10 +79,10 @@ npm run dev
 
 ## Access + Voice Agent Behavior
 
-- Frontend is passcode-gated (`/api/auth/verify`) and sends daily token in `x-access-token`.
+- Frontend uses Google Sign-In (Firebase) and sends `Authorization: Bearer <id_token>`.
 - Protected APIs include document upload/list/delete, query, transcribe, and sample KB bootstrap.
 - Agent prompt is tuned for voice: concise answers, read-aloud friendly, and citation grounded.
-- Daily AI call cap: 3 questions per session/IP.
+- Daily AI call cap: 3 questions per authenticated user.
 
 ## Deployment
 

@@ -3,19 +3,19 @@ import type { Document, QueryResult } from '../types'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const ACCESS_TOKEN_KEY = 'voice_rag_access_token'
-const ACCESS_TOKEN_DATE_KEY = 'voice_rag_access_token_date'
 
 const api = axios.create({ baseURL: BASE })
-
-export interface AccessVerifyResponse {
-  token: string
-  valid_until: string
-}
 
 export interface UsageResponse {
   used: number
   limit: number
   remaining: number
+}
+
+export interface AuthMeResponse {
+  uid: string
+  email: string
+  provider: string
 }
 
 export interface SampleKbTemplate {
@@ -35,26 +35,20 @@ export function getAccessToken(): string | null {
 
 export function clearAccessToken() {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(ACCESS_TOKEN_DATE_KEY)
 }
 
-export function setAccessToken(token: string, validUntil: string) {
+export function setAccessToken(token: string) {
   localStorage.setItem(ACCESS_TOKEN_KEY, token)
-  localStorage.setItem(ACCESS_TOKEN_DATE_KEY, validUntil)
 }
 
-export function hasValidStoredAccess() {
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
-  const validUntil = localStorage.getItem(ACCESS_TOKEN_DATE_KEY)
-  if (!token || !validUntil) return false
-  const today = new Date().toISOString().slice(0, 10)
-  return validUntil >= today
+export function hasStoredAccess() {
+  return !!localStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
 api.interceptors.request.use((config) => {
   const token = getAccessToken()
   if (token) {
-    config.headers['x-access-token'] = token
+    config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
@@ -69,8 +63,8 @@ api.interceptors.response.use(
   }
 )
 
-export async function verifyAccess(passcode: string): Promise<AccessVerifyResponse> {
-  const { data } = await api.post<AccessVerifyResponse>('/api/auth/verify', { passcode })
+export async function getCurrentUser(): Promise<AuthMeResponse> {
+  const { data } = await api.get<AuthMeResponse>('/api/auth/me')
   return data
 }
 
